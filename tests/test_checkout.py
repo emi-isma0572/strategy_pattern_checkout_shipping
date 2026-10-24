@@ -1,22 +1,63 @@
 import pytest
+
 from strategy_checkout.checkout import Checkout
 from strategy_checkout.models import Order
+from strategy_checkout.strategies import (
+    ShippingCostStrategy,
+    StandardShipping,
+    ExpressShipping,
+    PickupShipping,
+    SameDayShipping,
+)
+
 
 def test_standard_shipping_costs_49_below_threshold():
-    assert Checkout().shipping_cost(Order(750.0, 2.0), "standard") == 49.0
+    checkout = Checkout(StandardShipping())
+    assert checkout.shipping_cost(Order(750.0, 2.0)) == 49.0
+
 
 def test_standard_shipping_is_free_at_1000_or_more():
-    assert Checkout().shipping_cost(Order(1250.0, 3.5), "standard") == 0.0
+    checkout = Checkout(StandardShipping())
+    assert checkout.shipping_cost(Order(1250.0, 3.5)) == 0.0
+
 
 def test_express_shipping_uses_base_plus_weight():
-    assert Checkout().shipping_cost(Order(500.0, 3.5), "express") == 141.0
+    checkout = Checkout(ExpressShipping())
+    assert checkout.shipping_cost(Order(500.0, 3.5)) == 141.0
+
 
 def test_pickup_is_free():
-    assert Checkout().shipping_cost(Order(500.0, 3.5), "pickup") == 0.0
+    checkout = Checkout(PickupShipping())
+    assert checkout.shipping_cost(Order(500.0, 3.5)) == 0.0
+
 
 def test_total_adds_shipping_cost():
-    assert Checkout().total(Order(500.0, 2.0), "standard") == 549.0
+    checkout = Checkout(StandardShipping())
+    assert checkout.total(Order(500.0, 2.0)) == 549.0
 
-def test_unknown_service_is_rejected():
-    with pytest.raises(ValueError):
-        Checkout().shipping_cost(Order(500.0, 2.0), "teleport")
+
+def test_same_day_shipping_uses_base_plus_weight():
+    checkout = Checkout(SameDayShipping())
+    assert checkout.shipping_cost(Order(500.0, 3.0)) == 203.0
+
+
+def test_same_day_total():
+    checkout = Checkout(SameDayShipping())
+    assert checkout.total(Order(500.0, 3.0)) == 703.0
+
+
+def test_strategies_follow_abstract_contract():
+    strategies = [
+        StandardShipping(),
+        ExpressShipping(),
+        PickupShipping(),
+        SameDayShipping(),
+    ]
+
+    for strategy in strategies:
+        assert isinstance(strategy, ShippingCostStrategy)
+
+
+def test_abstract_strategy_cannot_be_instantiated():
+    with pytest.raises(TypeError):
+        ShippingCostStrategy()
